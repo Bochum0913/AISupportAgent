@@ -1,0 +1,173 @@
+@AISupportAgent_HostAddress = http://localhost:5268
+
+POST {{AISupportAgent_HostAddress}}/api/Agent/chat
+Content-Type: application/json
+
+{
+  "conversationId": "graph-e2e-test-001",
+  "message": "Show me all users in Microsoft Entra ID."
+}
+
+
+### Test Microsoft Graph Users
+
+GET {{AISupportAgent_HostAddress}}/api/Graph/users
+
+### Test Microsoft Graph - Create Group
+
+POST {{AISupportAgent_HostAddress}}/api/Graph/groups
+Content-Type: application/json
+
+{
+  "groupName": "VPN Support"
+}
+
+### Test AI Agent - Create Entra Group
+
+POST {{AISupportAgent_HostAddress}}/api/Agent/chat
+Content-Type: application/json
+
+{
+  "conversationId": "graph-create-group-test-001",
+  "message": "Create a Microsoft Entra ID security group called AI Automation Team."
+}
+
+### Test AI Agent - Add User to Entra Group
+
+POST {{AISupportAgent_HostAddress}}/api/Agent/chat
+Content-Type: application/json
+
+{
+  "conversationId": "graph-add-user-test-001",
+  "message": "Add Bohong Liu to the AI Automation Team group."
+}
+
+### Test Confirmation - Step 1
+
+POST {{AISupportAgent_HostAddress}}/api/Agent/chat
+Content-Type: application/json
+
+{
+  "conversationId": "confirmation-test-001",
+  "message": "Add Bohong Liu to the VPN Support group."
+}
+
+### Test Confirmation - Step 2
+
+POST {{AISupportAgent_HostAddress}}/api/Agent/chat
+Content-Type: application/json
+
+{
+  "conversationId": "confirmation-test-001",
+  "message": "Yes, proceed."
+}
+
+###Test Cancel Group
+### Test Confirmation Cancel - Step 1
+
+POST {{AISupportAgent_HostAddress}}/api/Agent/chat
+Content-Type: application/json
+
+{
+  "conversationId": "confirmation-cancel-test-001",
+  "message": "Add Bohong Liu to the Test Cancel Group."
+}
+
+### Test Confirmation Cancel - Step 2
+
+POST {{AISupportAgent_HostAddress}}/api/Agent/chat
+Content-Type: application/json
+
+{
+  "conversationId": "confirmation-cancel-test-001",
+  "message": "No, cancel it."
+}
+
+### Test Backend Confirmation Guard
+
+POST {{AISupportAgent_HostAddress}}/api/Agent/chat
+Content-Type: application/json
+
+{
+  "conversationId": "backend-guard-test-001",
+  "message": "Add Bohong Liu to the Test Cancel Group."
+}
+
+### Test Create Group Confirmation - Step 1
+
+POST {{AISupportAgent_HostAddress}}/api/Agent/chat
+Content-Type: application/json
+
+{
+  "conversationId": "create-group-confirm-test-001",
+  "message": "Create a Microsoft Entra ID security group called Security Operations Test."
+}
+
+### Test Create Group Confirmation - Step 2
+
+POST {{AISupportAgent_HostAddress}}/api/Agent/chat
+Content-Type: application/json
+
+{
+  "conversationId": "create-group-confirm-test-001",
+  "message": "Yes, proceed."
+}
+
+### Test Microsoft Graph - List Groups
+
+GET {{AISupportAgent_HostAddress}}/api/Graph/groups
+
+### Test AI Agent - List Entra Groups
+
+POST {{AISupportAgent_HostAddress}}/api/Agent/chat
+Content-Type: application/json
+
+{
+  "conversationId": "graph-list-groups-test-001",
+  "message": "Show me all Microsoft Entra ID groups."
+}
+
+### Test Microsoft Graph - List Group Members
+
+GET {{AISupportAgent_HostAddress}}/api/Graph/groups/AI%20Automation%20Team/members
+
+### Test AI Agent - List Group Members
+
+POST {{AISupportAgent_HostAddress}}/api/Agent/chat
+Content-Type: application/json
+
+{
+  "conversationId": "graph-list-members-test-001",
+  "message": "Who is in the AI Automation Team group?"
+}
+
+### Test Logging - List Entra Groups
+
+POST {{AISupportAgent_HostAddress}}/api/Agent/chat
+Content-Type: application/json
+
+{
+    "conversationId": "logging-test-001",
+    "message": "Show me all Microsoft Entra ID groups."
+}
+
+### Test Unified Tool Logging
+
+POST {{AISupportAgent_HostAddress}}/api/Agent/chat
+Content-Type: application/json
+
+{
+  "conversationId": "logging-test-003",
+  "message": "Show me all Microsoft Entra ID groups."
+}
+
+### Test Graph Error Handling - Normal
+
+POST {{AISupportAgent_HostAddress}}/api/Agent/chat
+Content-Type: application/json
+
+{
+  "conversationId": "graph-error-test-002",
+  "message": "Show me all Microsoft Entra ID groups."
+}
+
