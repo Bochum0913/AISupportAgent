@@ -488,3 +488,13 @@ $RECYCLE.BIN/
 
 # Local development secrets
 appsettings.Development.json
+
+# React / Vite build output
+**/dist/
+
+# Environment files
+.env.*
+!.env.example
+
+# Local secrets
+**/appsettings.Development.json
