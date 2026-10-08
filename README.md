@@ -104,56 +104,31 @@ The backend performs an additional confirmation check before allowing these oper
 
 
 
-\## Architecture
-
-
+## Architecture
 
 ```text
-
 User
-
-&#x20; |
-
-&#x20; v
-
+  |
+  v
 AgentController
-
-&#x20; |
-
-&#x20; v
-
+  |
+  v
 AgentService
-
-&#x20; |
-
-&#x20; v
-
+  |
+  v
 Azure OpenAI
-
-&#x20; |
-
-&#x20; v
-
+  |
+  v
 Function Calling / Tool Execution
-
-&#x20; |
-
-&#x20; +-------------------+--------------------+
-
-&#x20; |                   |                    |
-
-&#x20; v                   v                    v
-
+  |
+  +-------------------+--------------------+
+  |                   |                    |
+  v                   v                    v
 Knowledge Base   Support Tickets     Microsoft Graph
-
-&#x20; |                   |                    |
-
-&#x20; v                   v                    v
-
+  |                   |                    |
+  v                   v                    v
 SQLite / EF Core SQLite / EF Core   Microsoft Entra ID
-
 ```
-
 
 
 \## Technology Stack
