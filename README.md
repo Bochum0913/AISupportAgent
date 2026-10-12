@@ -96,6 +96,42 @@ The React application communicates with the ASP.NET Core REST API.
 - Automated tests
 - Cloud deployment
 
+## Automated End-to-End Testing
+
+This project includes automated end-to-end (E2E) tests using **Playwright** and **Chromium** to validate the React frontend and ASP.NET Core backend integration.
+
+### Test Coverage
+
+The automated test covers the following workflow:
+
+1. Open the AI Support Agent dashboard.
+2. Create a new support ticket with a unique description.
+3. Verify that the ticket appears in the dashboard.
+4. Open the ticket details panel.
+5. Update the ticket status to **In Progress**.
+6. Reload the application.
+7. Verify that the updated status persists after reloading.
+
+### Running the Tests
+
+Start the ASP.NET Core backend and React frontend before running the tests.
+
+From the `frontend` directory, execute:
+
+```bash
+npx playwright test tests/ticket.spec.js --project=chromium
+```
+
+On Windows PowerShell, you can use:
+
+```powershell
+npx.cmd playwright test tests/ticket.spec.js --project=chromium
+```
+
+The tests run in Chromium and verify the application's core ticket management workflow.
+
+**Note:** Tests currently use the local development environment and create records in the development database. A dedicated test database is recommended for future improvements.
+
 ## Author
 
 **Matthew (Bohong) Liu**
