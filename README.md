@@ -1,139 +1,117 @@
-
 # AI Support Agent
 
-A full-stack AI-powered IT support application built with React, ASP.NET Core, and SQLite.
+**Full-stack IT support and ticket management with an AI-assisted workflow**
 
-The application combines an AI support assistant with a ticket management dashboard, allowing users to troubleshoot issues and manage support tickets.
+Built with **React, ASP.NET Core (.NET 10), Entity Framework Core, SQLite, and the OpenAI API**. The application combines a ticket-management dashboard with an AI assistant that can help troubleshoot IT issues and perform ticket operations after a user request.
 
-## Tech Stack
-
-**Frontend**
-- React
-- JavaScript
-- Vite
-- CSS
-
-**Backend**
-- C#
-- ASP.NET Core Web API
-- Entity Framework Core
-- SQLite
-- OpenAI API
+> **Live frontend demo:** [SupportFlow Portfolio Demo](https://supportflow-demo.pages.dev)  
+> **Demo source:** [SupportFlow-Demo](https://github.com/Bochum0913/SupportFlow-Demo)  
+> The public demo uses **scripted AI simulations and browser-only storage**, not this project's live backend or OpenAI API.
 
 ## Features
 
-### AI Support Assistant
-- AI-powered IT troubleshooting conversations
-- Knowledge base lookup
-- Conversation history management
-- Tool/function calling for support workflows
-- User confirmation before sensitive actions
+- **AI-assisted IT troubleshooting:** conversational support, knowledge-base lookups, and continued conversations.
+- **Ticket workflows:** create tickets and change ticket priority through natural-language requests to the assistant.
+- **Support dashboard:** ticket counts, list and detail views, filtering by status, priority, and category.
+- **Ticket administration:** status and priority updates, technician assignment, and comments.
+- **Local persistence:** ticket data stored in SQLite through Entity Framework Core.
+- **End-to-end testing:** Playwright test setup and ticket workflow tests.
 
-### Ticket Management Dashboard
-- View support tickets and dashboard statistics
-- Create new support tickets
-- Filter tickets by status, priority, and category
-- View ticket details in a sliding side panel
-- Update ticket status and priority
-- Assign tickets to technicians
-- Add and view ticket comments
-- Persist ticket information in SQLite
+### Example workflow
 
-## Project Structure
+1. A user asks: *“My VPN isn't connecting. Can you help?”*
+2. The assistant supplies troubleshooting guidance using a knowledge-base article.
+3. The user asks the assistant to create a ticket.
+4. The dashboard shows the new ticket.
+5. The user asks to set the ticket's priority to High; the dashboard reflects the update.
+
+This workflow was tested locally. The public demo reproduces comparable interactions using simulated, rules-based responses.
+
+## Tech stack
+
+| Layer | Technologies |
+| --- | --- |
+| Frontend | React, JavaScript, Vite, CSS |
+| Backend | C#, ASP.NET Core Web API, .NET 10 |
+| Persistence | SQLite, Entity Framework Core and migrations |
+| AI integration | OpenAI API, application-side agent and knowledge-base services |
+| Testing | Playwright |
+| Development | Git, GitHub, Visual Studio / VS Code |
+
+## Architecture
 
 ```text
-AISupportAgent/
-├── AISupportAgent/     # ASP.NET Core backend
-├── frontend/           # React frontend
-├── AISupportAgent.slnx
-└── README.md
+React dashboard + AI chat
+          |
+          | HTTP /api requests (Vite proxy in development)
+          v
+ASP.NET Core Web API
+  |-- Ticket controllers/services --> EF Core --> SQLite
+  |-- Agent controller/service ---> Knowledge base + AI integration
+  `-- Conversation handling
 ```
 
-## Getting Started
+## Run locally
 
 ### Prerequisites
 
-- .NET SDK compatible with the backend project
+- .NET 10 SDK
 - Node.js and npm
-- Visual Studio 2022 or VS Code
+- An OpenAI API key with any required usage allowance, for live AI responses
 
 ### Backend
 
-1. Open `AISupportAgent.slnx` in Visual Studio.
-2. Configure the required application settings and API credentials.
-3. Restore NuGet packages.
-4. Start the ASP.NET Core application.
+From the repository root:
+
+```bash
+dotnet restore AISupportAgent/AISupportAgent.csproj
+dotnet ef database update --project AISupportAgent/AISupportAgent.csproj --startup-project AISupportAgent/AISupportAgent.csproj
+dotnet run --project AISupportAgent/AISupportAgent.csproj
+```
+
+The `dotnet ef` command requires the EF Core CLI tool. Alternatively, in Visual Studio's Package Manager Console, select the `AISupportAgent` project and run `Update-Database`.
+
+Configure the required OpenAI settings using **ASP.NET Core User Secrets or environment variables**, following the configuration keys referenced by the service code. **Never commit API keys** to GitHub. Check the backend launch URL and `frontend/vite.config.js` proxy target; the supplied configuration points to `https://localhost:7088`.
 
 ### Frontend
 
-Open a terminal in the `frontend` directory:
-
 ```bash
+cd frontend
 npm install
 npm run dev
 ```
 
-Open the local URL displayed by Vite, usually:
+On Windows PowerShell, use `npm.cmd install` and `npm.cmd run dev` if `npm.ps1` is blocked by the execution policy.
 
-http://localhost:5173
+Open the URL Vite prints (often `http://localhost:5173`). Start the backend before testing live tickets and chat.
 
-The React application communicates with the ASP.NET Core REST API.
+## Public demo vs. local application
+
+| Capability | Local full-stack project | Public portfolio demo |
+| --- | --- | --- |
+| AI responses | Real API-backed integration | Explicitly scripted simulation |
+| Ticket persistence | SQLite database | Each browser's `localStorage` |
+| Backend API | ASP.NET Core | Simulated in the browser |
+| Shared multi-user tickets | Not designed as hosted production service | No |
+| Public hosting | Not deployed | Cloudflare Pages |
+
+The public demo is intended for product exploration only. Do not enter sensitive information.
 
 ## Screenshots
 
-## Screenshots
+If these images are available in the repository:
 
-### Support Ticket Dashboard
-![Support Ticket Dashboard](screenshots/dashboard.png)
+![Ticket dashboard](screenshots/dashboard.png)
 
-### Ticket Details
-![Ticket Details](screenshots/ticket-details.png)
+![Ticket details](screenshots/ticket-details.png)
 
-## Future Improvements
+## Roadmap
 
 - Authentication and role-based access control
-- Improved ticket search and sorting
-- Automated tests
-- Cloud deployment
+- Secure public backend deployment and rate limiting
+- Durable hosted database and explicit AI usage limits
+- More extensive automated testing and UX improvements
 
-## Automated End-to-End Testing
+## Security note
 
-This project includes automated end-to-end (E2E) tests using **Playwright** and **Chromium** to validate the React frontend and ASP.NET Core backend integration.
-
-### Test Coverage
-
-The automated test covers the following workflow:
-
-1. Open the AI Support Agent dashboard.
-2. Create a new support ticket with a unique description.
-3. Verify that the ticket appears in the dashboard.
-4. Open the ticket details panel.
-5. Update the ticket status to **In Progress**.
-6. Reload the application.
-7. Verify that the updated status persists after reloading.
-
-### Running the Tests
-
-Start the ASP.NET Core backend and React frontend before running the tests.
-
-From the `frontend` directory, execute:
-
-```bash
-npx playwright test tests/ticket.spec.js --project=chromium
-```
-
-On Windows PowerShell, you can use:
-
-```powershell
-npx.cmd playwright test tests/ticket.spec.js --project=chromium
-```
-
-The tests run in Chromium and verify the application's core ticket management workflow.
-
-**Note:** Tests currently use the local development environment and create records in the development database. A dedicated test database is recommended for future improvements.
-
-## Author
-
-**Matthew (Bohong) Liu**
-
-[LinkedIn](https://www.linkedin.com/in/bohong-liu-2511a610b/) | [GitHub](https://github.com/Bochum0913)
+This is a portfolio project, **not a production helpdesk**. Before enabling public API access, add authentication, authorization, abuse prevention, appropriate logging, secure secret storage, and resource limits.
