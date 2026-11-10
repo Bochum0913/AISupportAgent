@@ -277,3 +277,25 @@ tbody tr:hover {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Authentication starter UI */
+.auth-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #f1f5f9; }
+.auth-card { width: min(420px, 100%); display: flex; flex-direction: column; gap: 14px; padding: 32px; background: white; border-radius: 12px; box-shadow: 0 12px 36px #0f172a12; }
+.auth-card h1 { margin: 0; font-size: 27px; }
+.auth-card label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
+.auth-card input { width: 100%; box-sizing: border-box; }
+.secondary-button { background: #475569; }
+.account-bar { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; margin-top: 12px; }
+
+/* Phase 2 audit log */
+.audit-history { padding-left: 1.25rem; margin: .75rem 0 1.5rem; }
+.audit-history li { padding: .4rem 0; border-bottom: 1px solid #e5e7eb; overflow-wrap: anywhere; }
+.audit-history small { display: block; color: #64748b; margin-top: .2rem; }
+
+/* Comments 2.0 */
+.ticket-comment { padding: 10px 12px; margin-bottom: 8px; border: 1px solid #dae2ed; border-radius: 7px; }
+.ticket-comment.internal-comment { border-left: 4px solid #9b6a19; background: #fff9eb; }
+.comment-meta { font-size: 0.78rem; color: #53637a; margin-bottom: 5px; }
+.internal-label { color: #875916; }
+.internal-toggle { display: inline-flex; align-items: center; justify-content: flex-start; gap: 10px; margin: 10px 0; font-size: 13px; color: #475569; cursor: pointer; }
+.internal-toggle input[type="checkbox"] { flex: 0 0 16px; width: 16px; height: 16px; min-width: 16px; margin: 0; padding: 0; accent-color: #2563eb; cursor: pointer; }

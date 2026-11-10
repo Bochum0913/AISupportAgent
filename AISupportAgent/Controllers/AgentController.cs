@@ -8,6 +8,7 @@ namespace AISupportAgent.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
     public class AgentController : ControllerBase
     {
         private readonly AgentService _agentService;

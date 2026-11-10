@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="AISupportAgent/AISupportAgent.csproj" />
+  <Project Path="AISupportAgent.Tests/AISupportAgent.Tests.csproj" />
 </Solution>
