@@ -1,0 +1,44 @@
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "Data Source=/app/data/aisupport.db"
+      ConnectionStrings__AuthConnection: "Data Source=/app/data/auth.db"
+      OpenAI__ApiKey: ${OPENAI_API_KEY:-}
+      MicrosoftGraph__TenantId: ${MS_GRAPH_TENANT_ID:-}
+      MicrosoftGraph__ClientId: ${MS_GRAPH_CLIENT_ID:-}
+      MicrosoftGraph__ClientSecret: ${MS_GRAPH_CLIENT_SECRET:-}
+      BootstrapAdmin__Email: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BootstrapAdmin__Password: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      ReverseProxy__KnownProxy: "172.30.250.3"
+    volumes:
+      - sqlite_data:/app/data
+    restart: unless-stopped
+    networks:
+      - app_net
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    ports:
+      - "127.0.0.1:8443:443"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      app_net:
+        ipv4_address: 172.30.250.3
+
+volumes:
+  sqlite_data:
+
+networks:
+  app_net:
+    ipam:
+      config:
+        - subnet: 172.30.250.0/24

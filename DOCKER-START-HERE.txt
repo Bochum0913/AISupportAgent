@@ -1,0 +1,33 @@
+AISupportAgent - Docker Desktop local test
+
+1. Extract this ZIP. Open the inner AISupportAgent-Docker-Ready folder.
+   This is a complete copy of the GitHub project with Docker files added.
+2. Ensure Docker Desktop displays Engine running.
+3. In Windows File Explorer, click the folder address bar, enter powershell, press Enter.
+4. Run: docker compose up --build -d
+5. Run: docker compose ps
+6. Visit: https://localhost:8443
+   The certificate is self-signed for localhost, so the browser may warn.
+7. You can register a Customer user using the webpage. AI chat requires an Admin role.
+   To bootstrap a new Admin, copy .env.example to .env and fill
+   BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD (10+ chars, upper-case and digit)
+   BEFORE the first launch, then run docker compose up --build -d.
+   Do not use a pre-existing Customer account's email for the bootstrap admin.
+   Never commit or share .env.
+8. For live AI, put OPENAI_API_KEY in .env and restart Docker containers.
+   Graph API operations additionally need real Microsoft Graph credentials.
+
+Useful commands:
+  docker compose logs --tail=100 backend
+  docker compose logs --tail=100 web
+  docker compose down              (stops, retains data)
+  docker compose up --build -d
+
+IMPORTANT:
+  Do NOT run docker compose down -v unless intentionally erasing Docker SQLite data.
+  Docker uses its OWN new databases, not your existing Windows SQLite files.
+  This is for local test only. The HTTPS certificate is untrusted and generated at build time.
+  These configs were checked against repository source, but not actually built/run here.
+  The original application's ASP.NET DataProtection keys are not persisted separately;
+  session cookies can become invalid when backend container is recreated.
+  If build fails, copy the actual error output to the chat.

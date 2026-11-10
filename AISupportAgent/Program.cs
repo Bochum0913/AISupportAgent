@@ -6,6 +6,7 @@ using AISupportAgent.Data;
 using AISupportAgent.Models;
 using AISupportAgent.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,6 +58,25 @@ builder.Services.AddScoped<MicrosoftGraphService>();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+var trustedProxy = builder.Configuration["ReverseProxy:KnownProxy"];
+
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedProto
+};
+
+if (!string.IsNullOrWhiteSpace(trustedProxy))
+{
+    if (!System.Net.IPAddress.TryParse(trustedProxy, out var address))
+    {
+        throw new InvalidOperationException(
+            "Invalid ReverseProxy:KnownProxy configuration.");
+    }
+
+    forwardedHeadersOptions.KnownProxies.Add(address);
+}
+
+app.UseForwardedHeaders(forwardedHeadersOptions);
 
 using (var scope = app.Services.CreateScope())
 {

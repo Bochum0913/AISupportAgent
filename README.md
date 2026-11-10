@@ -115,3 +115,60 @@ If these images are available in the repository:
 ## Security note
 
 This is a portfolio project, **not a production helpdesk**. Before enabling public API access, add authentication, authorization, abuse prevention, appropriate logging, secure secret storage, and resource limits.
+
+## Docker Deployment
+
+AISupportAgent supports local deployment using Docker Compose. The application includes an ASP.NET Core 10 backend, a React/Vite frontend served by Nginx, and persistent SQLite storage.
+
+### Prerequisites
+
+- Docker Desktop or Docker Engine with Docker Compose
+- Available port `8443`
+
+### Quick Start
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/Bochum0913/AISupportAgent.git
+   cd AISupportAgent
+   ```
+
+2. Optionally copy `.env.example` to `.env` and configure API credentials. External API credentials are not required for basic ticket management.
+
+3. Build and start the application:
+
+   ```bash
+   docker compose up --build -d
+   ```
+
+4. Open the application:
+
+   **https://localhost:8443**
+
+   The local environment uses a self-signed HTTPS certificate, so your browser may display a certificate warning. Only proceed when testing your own localhost deployment.
+
+5. Create a Customer account to test authentication and ticket creation.
+
+### Stop the Application
+
+```bash
+docker compose down
+```
+
+SQLite data is stored in a persistent Docker volume and survives normal container restarts and `docker compose down`.
+
+**Warning:** Running `docker compose down -v` removes the database volume and can permanently delete stored data.
+
+### Optional Integrations
+
+The application supports optional OpenAI and Microsoft Graph integrations. Configure the corresponding environment variables in a local `.env` file.
+
+Never commit real API keys, client secrets, or passwords to the repository.
+
+### Security Notes
+
+- The Docker configuration is intended for local development and demonstration.
+- HTTPS uses a self-signed certificate.
+- The reverse proxy is configured for the included Docker network.
+- Public deployment requires a trusted TLS certificate, appropriate network settings, and additional security review.

@@ -498,3 +498,20 @@ appsettings.Development.json
 
 # Local secrets
 **/appsettings.Development.json
+
+# Docker local overrides
+compose.override.yaml
+docker-compose.override.yml
+
+# Certificates and private keys
+*.pem
+*.key
+*.p12
+*.pfx
+
+# SQLite additional files
+*.sqlite
+*.sqlite3
+
+# Local secret settings
+secrets/
