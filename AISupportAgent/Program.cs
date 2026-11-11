@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
-using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -202,3 +201,5 @@ app.Use(async (context, next) =>
 app.MapControllers();
 
 app.Run();
+
+public partial class Program { }
