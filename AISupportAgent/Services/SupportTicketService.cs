@@ -125,7 +125,7 @@ namespace AISupportAgent.Services
             });
         }
 
-        public string UpdateTicketStatus(string ticketId, string status, string? actorUserId = null, string? actorLabel = null, long? expectedVersion = null)
+        public string UpdateTicketStatus(string ticketId, string status, string? actorUserId = null, string? actorLabel = null, long? expectedVersion = null, string? resolutionNote = null)
         {
             SupportTicket? ticket = _dbContext.SupportTickets
                 .FirstOrDefault(t => t.Id == ticketId);
@@ -139,19 +139,36 @@ namespace AISupportAgent.Services
 
             string normalizedStatus = status.Trim();
 
-            if (normalizedStatus != "Open" &&
-                normalizedStatus != "In Progress" &&
-                normalizedStatus != "Resolved")
+            // Explicit transition graph; customer confirmation is authorized by controller.
+            bool allowed = (ticket.Status, normalizedStatus) switch
             {
-                return "Invalid status. Status must be Open, In Progress, or Resolved.";
-            }
-
-            if (ticket.Status == normalizedStatus)
-                return $"Support ticket {ticketId} status is already {normalizedStatus}.";
+                ("Open", "In Progress") => true,
+                ("In Progress", "Resolved") => true,
+                ("Resolved", "Closed") => true,
+                ("Resolved", "Reopened") => true,
+                ("Reopened", "In Progress") => true,
+                _ => false
+            };
+            if (!allowed)
+                throw new InvalidOperationException($"Invalid transition from {ticket.Status} to {normalizedStatus}.");
+            if (normalizedStatus == "Resolved" && string.IsNullOrWhiteSpace(resolutionNote))
+                throw new InvalidOperationException("A resolution note is required.");
 
             RecordChange(ticket.Id, "Status", ticket.Status, normalizedStatus, actorUserId, actorLabel);
             ticket.Status = normalizedStatus;
             ticket.Version++;
+            if (normalizedStatus == "Resolved")
+            {
+                _dbContext.SupportTicketComments.Add(new SupportTicketComment
+                {
+                    TicketId = ticketId,
+                    Content = resolutionNote!.Trim(),
+                    CreatedAt = DateTime.UtcNow,
+                    AuthorUserId = actorUserId ?? "",
+                    AuthorLabel = actorLabel ?? "Support Agent",
+                    IsInternal = false
+                });
+            }
             _dbContext.SaveChanges();
 
             return $"Support ticket {ticketId} status updated to {normalizedStatus}.";

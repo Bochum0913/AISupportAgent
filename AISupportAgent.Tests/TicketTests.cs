@@ -130,4 +130,65 @@ public sealed class TicketTests
         Assert.IsType<ForbidResult>(result);
         Assert.Empty(test.Db.SupportTicketComments);
     }
+    [Fact]
+    public void Agent_CannotModifyUnassignedTicket()
+    {
+        using var test = new TestDatabase();
+        test.Service.CreateTicket("Private", "Software", "customer-1");
+        var agent = AsUser(test, "agent-2", "Agent");
+        Assert.IsType<ForbidResult>(agent.UpdateStatus("INC-1001", new UpdateStatusRequest
+        {
+            Status = "In Progress", Version = 1
+        }));
+        Assert.Equal("Open", test.Db.SupportTickets.Single().Status);
+    }
+
+    [Fact]
+    public async Task Agent_OnlySeesAssignedTickets()
+    {
+        using var test = new TestDatabase();
+        test.Service.CreateTicket("Assigned", "Software", "customer-1");
+        test.Service.CreateTicket("Unassigned", "Email", "customer-2");
+        test.Service.AssignTicket("INC-1001", "agent-1", "admin", "Admin", 1);
+        var agent = AsUser(test, "agent-1", "Agent");
+        var list = Assert.IsType<OkObjectResult>(await agent.GetTickets(null, null, null));
+        var results = Assert.IsAssignableFrom<IEnumerable<SupportTicket>>(list.Value);
+        Assert.Single(results);
+        Assert.IsType<NotFoundObjectResult>(await agent.GetTicket("INC-1002"));
+    }
+
+    [Fact]
+    public void Customer_ConfirmationRequiresOwnershipAndResolvedStatus()
+    {
+        using var test = new TestDatabase();
+        test.Service.CreateTicket("VPN issue", "Network", "customer-1");
+        var other = AsUser(test, "customer-2", "Customer");
+        Assert.IsType<NotFoundObjectResult>(other.ConfirmResolution("INC-1001",
+            new ConfirmResolutionRequest { Version = 1, Resolved = true }));
+        var owner = AsUser(test, "customer-1", "Customer");
+        Assert.IsType<BadRequestObjectResult>(owner.ConfirmResolution("INC-1001",
+            new ConfirmResolutionRequest { Version = 1, Resolved = true }));
+    }
+
+    [Fact]
+    public void ResolutionRequiresPublicNoteAndCustomerCanReopen()
+    {
+        using var test = new TestDatabase();
+        test.Service.CreateTicket("VPN issue", "Network", "customer-1");
+        test.Service.AssignTicket("INC-1001", "agent-1", "admin", "Admin", 1);
+        var agent = AsUser(test, "agent-1", "Agent");
+        Assert.IsType<OkObjectResult>(agent.UpdateStatus("INC-1001",
+            new UpdateStatusRequest { Version = 2, Status = "In Progress" }));
+        Assert.IsType<BadRequestObjectResult>(agent.UpdateStatus("INC-1001",
+            new UpdateStatusRequest { Version = 3, Status = "Resolved" }));
+        Assert.IsType<OkObjectResult>(agent.UpdateStatus("INC-1001",
+            new UpdateStatusRequest { Version = 3, Status = "Resolved", ResolutionNote = "Restarted VPN client." }));
+        Assert.Single(test.Db.SupportTicketComments);
+        Assert.False(test.Db.SupportTicketComments.Single().IsInternal);
+        var owner = AsUser(test, "customer-1", "Customer");
+        Assert.IsType<OkObjectResult>(owner.ConfirmResolution("INC-1001",
+            new ConfirmResolutionRequest { Version = 4, Resolved = false }));
+        Assert.Equal("Reopened", test.Db.SupportTickets.Single().Status);
+    }
+
 }

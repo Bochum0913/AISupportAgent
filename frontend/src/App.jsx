@@ -52,6 +52,10 @@ function App() {
   const [historyError, setHistoryError] = useState('')
   const [drawerError, setDrawerError] = useState('')
   const [assignee, setAssignee] = useState('')
+  const [agents, setAgents] = useState([])
+  const [accounts, setAccounts] = useState([])
+  const [accountError, setAccountError] = useState('')
+  const [resolutionNote, setResolutionNote] = useState('')
   const [newComment, setNewComment] = useState('')
   const [isInternalComment, setIsInternalComment] = useState(false)
   const [issue, setIssue] = useState('')
@@ -79,7 +83,39 @@ function App() {
       if (r.ok) setUser(await r.json())
     }).catch(() => {}).finally(() => setAuthReady(true))
   }, [])
-  useEffect(() => { if (user) loadTickets() }, [user])
+  useEffect(() => {
+    if (!user) return
+    loadTickets()
+    if (user.roles.includes('Admin')) {
+      refreshStaffDirectory()
+    }
+  }, [user])
+
+  async function refreshStaffDirectory() {
+    try {
+      const [agentsResponse, usersResponse] = await Promise.all([
+        apiFetch(`${API}/agents`), apiFetch('/api/auth/users')
+      ])
+      if (!agentsResponse.ok || !usersResponse.ok) throw new Error('Cannot load user directory')
+      setAgents(await agentsResponse.json())
+      setAccounts(await usersResponse.json())
+    } catch (err) { setAccountError(err.message) }
+  }
+
+  async function setAccountRole(accountId, role) {
+    setAccountError('')
+    try {
+      const response = await apiFetch(`/api/auth/users/${encodeURIComponent(accountId)}/role`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role })
+      })
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}))
+        throw new Error(body.message || 'Could not update account role')
+      }
+      await refreshStaffDirectory()
+    } catch (err) { setAccountError(err.message) }
+  }
 
   async function submitAuth(e) {
     e.preventDefault()
@@ -156,6 +192,7 @@ function App() {
       setDrawerError('')
       setAssignee(ticket.assignedTo || '')
       setIsInternalComment(false)
+      setResolutionNote('')
       setHistory([])
       setHistoryError('')
       try {
@@ -180,7 +217,7 @@ function App() {
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status, version: selected.version })
+          body: JSON.stringify({ status, version: selected.version, resolutionNote: status === 'Resolved' ? resolutionNote : null })
         }
       )
 
@@ -190,7 +227,10 @@ function App() {
           setDrawerError('Another user changed this ticket. The latest version has been loaded; review it before trying again.')
           return
         }
-        if (!response.ok) throw new Error('Failed to update status')
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}))
+          throw new Error(body.message || 'Failed to update status')
+        }
 
       await loadTickets()
       await viewTicket(id)
@@ -220,7 +260,10 @@ async function updatePriority(id, priority) {
           setDrawerError('Another user changed this ticket. The latest version has been loaded; review it before trying again.')
           return
         }
-        if (!response.ok) throw new Error('Failed to update priority')
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}))
+          throw new Error(body.message || 'Failed to update priority')
+        }
 
     await loadTickets()
     await viewTicket(id)
@@ -249,12 +292,36 @@ async function saveAssignee(id) {
           setDrawerError('Another user changed this ticket. The latest version has been loaded; review it before trying again.')
           return
         }
-        if (!response.ok) throw new Error('Failed to assign ticket')
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}))
+          throw new Error(body.message || 'Failed to assign ticket')
+        }
 
     await loadTickets()
     await viewTicket(id)
   } catch (err) {
     setError(err.message)
+  }
+}
+
+async function confirmResolution(id, resolved) {
+  setDrawerError('')
+  try {
+    const response = await apiFetch(`${API}/${encodeURIComponent(id)}/confirmation`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version: selected.version, resolved })
+    })
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      throw new Error(body.message || 'Could not confirm resolution')
+    }
+    await loadTickets()
+    await viewTicket(id)
+  } catch (err) {
+    setDrawerError(err.message)
+    await viewTicket(id)
+    setDrawerError(err.message)
   }
 }
 
@@ -304,14 +371,36 @@ async function addComment(id) {
     </main>
   )
 
-  const isStaff = user.roles.some(r => r === 'Agent' || r === 'Admin')
+  const isAdmin = user.roles.includes('Admin')
+  const isAgent = user.roles.includes('Agent')
+  const isCustomer = user.roles.includes('Customer') && !isAdmin && !isAgent
+  const isStaff = isAdmin || isAgent
+  const canEditTicket = isAdmin || (isAgent && selected?.assignedTo === user.id)
+  const allowedNextStatus = selected?.status === 'Open' || selected?.status === 'Reopened'
+    ? 'In Progress' : selected?.status === 'In Progress' ? 'Resolved' : null
   return (
     <main className="dashboard">
       <header>
         <h1>AI Support Agent</h1>
-        <p>Support Ticket Management Dashboard</p>
+        <p>{isAdmin ? 'Admin · Ticket Assignment & Oversight' : isAgent ? 'Agent · My Assigned Tickets' : 'Customer · AI Self-Service & Tickets'}</p>
         <div className="account-bar"><span>{user.email} ({user.roles.join(', ')})</span><button onClick={logout}>Log out</button></div>
       </header>
+
+      {isAdmin && <section className="panel">
+        <div className="section-heading"><h2>User Role Management</h2><button onClick={refreshStaffDirectory}>Refresh Users</button></div>
+        <p>New users register as Customers. Assign the Agent role here before assigning tickets.</p>
+        {accountError && <p className="error">{accountError}</p>}
+        <div className="account-list">
+          {accounts.map(account => <div className="account-item" key={account.id}>
+            <span>{account.email} · {account.roles?.join(', ')}</span>
+            {!account.roles?.includes('Admin') && <button type="button"
+              disabled={account.roles?.includes('Agent')}
+              onClick={() => setAccountRole(account.id, 'Agent')}>
+              {account.roles?.includes('Agent') ? 'Agent' : 'Make Agent'}
+            </button>}
+          </div>)}
+        </div>
+      </section>}
 
       <section className="stats">
         <div className="stat">
@@ -372,6 +461,8 @@ async function addComment(id) {
             <option value="Open">Open</option>
             <option value="In Progress">In Progress</option>
             <option value="Resolved">Resolved</option>
+            <option value="Reopened">Reopened</option>
+            <option value="Closed">Closed</option>
           </select>
 
           <select
@@ -442,7 +533,7 @@ async function addComment(id) {
       </section>
 
       
-      <AIChat key={user.id} apiFetch={apiFetch} onTicketCreated={loadTickets} />
+      {isCustomer && <AIChat key={user.id} apiFetch={apiFetch} onTicketCreated={loadTickets} />}
 
       {selected && (
         <div className="drawer-overlay" onClick={() => setSelected(null)}>
@@ -467,42 +558,44 @@ async function addComment(id) {
               <p>{selected.category}</p>
          
               <h3>Priority</h3>
-              <select disabled={!isStaff}
+              <select disabled={!canEditTicket}
                 value={selected.priority}
                 onChange={(e) => updatePriority(selected.id, e.target.value)}
               >
-                <option>Low</option>
-                <option>Normal</option>
-                <option>High</option>
+                <option>Low</option><option>Normal</option><option>High</option>
               </select>
 
               <h3>Assigned To</h3>
-              {isStaff && <div className="assignee-form">
-                <input
-                  value={assignee}
-                  onChange={(e) => setAssignee(e.target.value)}
-                  placeholder="Enter technician name"
-                />
-                <button
-                  type="button"
-                  onClick={() => saveAssignee(selected.id)}
-                  disabled={!assignee.trim()}
-                >
-                  Save
-                </button>
+              <p>{agents.find(a => a.id === selected.assignedTo)?.email || (selected.assignedTo || 'Unassigned')}</p>
+              {isAdmin && <div className="assignee-form">
+                <select value={assignee} onChange={e => setAssignee(e.target.value)} aria-label="Assign to Agent">
+                  <option value="">Select an Agent</option>
+                  {agents.map(a => <option key={a.id} value={a.id}>{a.email}</option>)}
+                </select>
+                <button type="button" onClick={() => saveAssignee(selected.id)} disabled={!assignee || assignee === selected.assignedTo}>Assign</button>
               </div>}
+              {isAdmin && agents.length === 0 && <p>No Agent accounts found. Create a test Agent via the Admin role API first.</p>}
 
               <h3>Status</h3>
-              <select disabled={!isStaff}
-                value={selected.status}
-                onChange={(e) =>
-                  updateStatus(selected.id, e.target.value)
-                }
-              >
-                <option>Open</option>
-                <option>In Progress</option>
-                <option>Resolved</option>
-              </select>
+              <p><strong>{selected.status}</strong></p>
+              {canEditTicket && allowedNextStatus && <div className="workflow-actions">
+                {allowedNextStatus === 'Resolved' && <textarea
+                  value={resolutionNote}
+                  onChange={e => setResolutionNote(e.target.value)}
+                  maxLength={4000}
+                  placeholder="Required: describe the resolution for the customer"
+                  rows={3}
+                />}
+                <button type="button" disabled={allowedNextStatus === 'Resolved' && !resolutionNote.trim()}
+                  onClick={() => updateStatus(selected.id, allowedNextStatus)}>
+                  Move to {allowedNextStatus}
+                </button>
+              </div>}
+              {isCustomer && selected.status === 'Resolved' && <div className="workflow-actions">
+                <p>Did the agent resolve your issue?</p>
+                <button type="button" onClick={() => confirmResolution(selected.id, true)}>Yes, close ticket</button>
+                <button type="button" className="secondary-button" onClick={() => confirmResolution(selected.id, false)}>No, reopen ticket</button>
+              </div>}
 
               <h3>Activity History</h3>
               {historyError && <p className="error">{historyError}</p>}
@@ -537,19 +630,19 @@ async function addComment(id) {
                 <textarea
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
-                  placeholder={isStaff && isInternalComment ? 'Write an internal note (staff only)...' : 'Write a public reply...'}
+                  placeholder={canEditTicket && isInternalComment ? 'Write an internal note (staff only)...' : 'Write a public reply...'}
                   rows={4}
                   maxLength={4000}
                 />
 
-                {isStaff && <label className="internal-toggle">
+                {canEditTicket && <label className="internal-toggle">
                   <input type="checkbox" checked={isInternalComment} onChange={e => setIsInternalComment(e.target.checked)} />
                   Internal note · Only visible to support staff
                 </label>}
                 <button
                   type="button"
                   onClick={() => addComment(selected.id)}
-                  disabled={!newComment.trim()}
+                  disabled={!newComment.trim() || (isStaff && !canEditTicket)}
                 >
                   Add Comment
                 </button>

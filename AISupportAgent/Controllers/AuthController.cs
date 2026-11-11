@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
 
 namespace AISupportAgent.Controllers;
 
@@ -53,6 +54,19 @@ public sealed class AuthController : ControllerBase
     [HttpPost("logout"), Authorize]
     public async Task<IActionResult> Logout()
     { await _signIn.SignOutAsync(); return Ok(new { message = "Logged out." }); }
+
+    [HttpGet("users"), Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Users()
+    {
+        var users = await _users.Users.OrderBy(u => u.Email).ToListAsync();
+        var result = new List<object>();
+        foreach (var user in users)
+        {
+            var roles = await _users.GetRolesAsync(user);
+            result.Add(new { user.Id, user.Email, Roles = roles });
+        }
+        return Ok(result);
+    }
 
     [HttpPost("users/{id}/role"), Authorize(Roles = "Admin")]
     public async Task<IActionResult> ChangeRole(string id, ChangeRoleRequest request)

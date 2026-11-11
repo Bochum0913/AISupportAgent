@@ -16,13 +16,20 @@ namespace AISupportAgent.Controllers
     {
         private readonly AppDbContext _db;
         private readonly SupportTicketService _ticketService;
+        private readonly AuthDbContext? _authDb;
+        private string? CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier);
+        private bool IsAdmin => User.IsInRole("Admin");
+        private bool IsAgent => User.IsInRole("Agent") && !IsAdmin;
+        private bool IsCustomer => User.IsInRole("Customer") && !IsAdmin && !IsAgent;
+        private bool CanStaffEdit(SupportTicket t) => IsAdmin || (IsAgent && t.AssignedTo == CurrentUserId);
 
         public TicketsController(
             AppDbContext db,
-            SupportTicketService ticketService)
+            SupportTicketService ticketService, AuthDbContext? authDb = null)
         {
             _db = db;
             _ticketService = ticketService;
+            _authDb = authDb;
         }
 
         // GET /api/tickets
@@ -33,11 +40,9 @@ namespace AISupportAgent.Controllers
             [FromQuery] string? category)
         {
             var query = _db.SupportTickets.AsNoTracking();
-            if (User.IsInRole("Customer"))
-            {
-                var currentId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                query = query.Where(t => t.OwnerUserId == currentId);
-            }
+            if (IsCustomer) query = query.Where(t => t.OwnerUserId == CurrentUserId);
+            else if (IsAgent) query = query.Where(t => t.AssignedTo == CurrentUserId);
+            else if (!IsAdmin) return Forbid();
 
             if (!string.IsNullOrWhiteSpace(status))
                 query = query.Where(t => t.Status == status);
@@ -61,15 +66,11 @@ namespace AISupportAgent.Controllers
         public async Task<IActionResult> GetTicket(string id)
         {
             var visible = _db.SupportTickets.AsNoTracking().Where(t => t.Id == id);
-            if (User.IsInRole("Customer"))
-            {
-                var currentId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                visible = visible.Where(t => t.OwnerUserId == currentId);
-            }
-            if (!User.IsInRole("Customer") && !User.IsInRole("Agent") && !User.IsInRole("Admin"))
-                return Forbid();
+            if (IsCustomer) visible = visible.Where(t => t.OwnerUserId == CurrentUserId);
+            else if (IsAgent) visible = visible.Where(t => t.AssignedTo == CurrentUserId);
+            if (!IsCustomer && !IsAgent && !IsAdmin) return Forbid();
 
-            var customerView = User.IsInRole("Customer");
+            var customerView = IsCustomer;
             var ticket = await visible
                 .Select(t => new
                 {
@@ -114,11 +115,8 @@ namespace AISupportAgent.Controllers
         public async Task<IActionResult> GetTicketHistory(string id)
         {
             var ticketQuery = _db.SupportTickets.AsNoTracking().Where(t => t.Id == id);
-            if (User.IsInRole("Customer"))
-            {
-                var currentId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                ticketQuery = ticketQuery.Where(t => t.OwnerUserId == currentId);
-            }
+            if (IsCustomer) ticketQuery = ticketQuery.Where(t => t.OwnerUserId == CurrentUserId);
+            else if (IsAgent) ticketQuery = ticketQuery.Where(t => t.AssignedTo == CurrentUserId);
             else if (!User.IsInRole("Agent") && !User.IsInRole("Admin"))
             {
                 return Forbid();
@@ -186,16 +184,25 @@ namespace AISupportAgent.Controllers
                 !validStatuses.Contains(request.Status.Trim()))
                 return BadRequest(new { message = "Invalid status." });
 
-            if (!_db.SupportTickets.Any(t => t.Id == id))
-                return NotFound(new { message = "Ticket not found." });
+            var target = _db.SupportTickets.AsNoTracking().FirstOrDefault(t => t.Id == id);
+            if (target is null) return NotFound(new { message = "Ticket not found." });
+            if (!CanStaffEdit(target)) return Forbid();
+            if (request.Status == "Resolved" && string.IsNullOrWhiteSpace(request.ResolutionNote))
+                return BadRequest(new { message = "A resolution note is required before resolving." });
+            if (request.ResolutionNote?.Length > 4000)
+                return BadRequest(new { message = "Resolution note is too long." });
 
             try
             {
                 var result = _ticketService.UpdateTicketStatus(
                     id, request.Status,
                     User.FindFirstValue(ClaimTypes.NameIdentifier),
-                    User.Identity?.Name ?? "Staff", request.Version);
+                    User.Identity?.Name ?? "Staff", request.Version, request.ResolutionNote);
                 return Ok(new { message = result });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -220,10 +227,9 @@ namespace AISupportAgent.Controllers
                 return BadRequest(new { message = "Invalid priority." });
             }
 
-            if (!_db.SupportTickets.Any(t => t.Id == id))
-            {
-                return NotFound(new { message = "Ticket not found." });
-            }
+            var target = _db.SupportTickets.AsNoTracking().FirstOrDefault(t => t.Id == id);
+            if (target is null) return NotFound(new { message = "Ticket not found." });
+            if (!CanStaffEdit(target)) return Forbid();
 
             try
             {
@@ -240,7 +246,7 @@ namespace AISupportAgent.Controllers
         }
 
         // PUT /api/tickets/INC-1014/assignee
-        [Authorize(Roles = "Agent,Admin")]
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id}/assignee")]
         public IActionResult AssignTicket(
             string id,
@@ -249,9 +255,15 @@ namespace AISupportAgent.Controllers
             if (request.Version is null || request.Version < 1)
                 return BadRequest(new { message = "A valid ticket version is required. Reload the ticket." });
             if (string.IsNullOrWhiteSpace(request.AssignedTo))
-            {
-                return BadRequest(new { message = "Assigned To is required." });
-            }
+                return BadRequest(new { message = "Agent user ID is required." });
+            if (_authDb is null) return StatusCode(500, new { message = "Identity database is unavailable." });
+            var agentId = request.AssignedTo.Trim();
+            var validAgent = (from u in _authDb.Users
+                              join ur in _authDb.UserRoles on u.Id equals ur.UserId
+                              join r in _authDb.Roles on ur.RoleId equals r.Id
+                              where u.Id == agentId && r.NormalizedName == "AGENT"
+                              select u.Id).Any();
+            if (!validAgent) return BadRequest(new { message = "Select an existing Agent account." });
 
             if (!_db.SupportTickets.Any(t => t.Id == id))
             {
@@ -273,6 +285,48 @@ namespace AISupportAgent.Controllers
         }
 
 
+        // Admin uses verified Identity IDs, not free-text assignee names.
+        [Authorize(Roles = "Admin")]
+        [HttpGet("agents")]
+        public async Task<IActionResult> GetAgents()
+        {
+            if (_authDb is null) return StatusCode(500);
+            var agents = await (from u in _authDb.Users
+                                join ur in _authDb.UserRoles on u.Id equals ur.UserId
+                                join r in _authDb.Roles on ur.RoleId equals r.Id
+                                where r.NormalizedName == "AGENT"
+                                orderby u.Email
+                                select new { id = u.Id, email = u.Email }).ToListAsync();
+            return Ok(agents);
+        }
+
+        // Only the ticket owner decides whether a resolved ticket is closed or reopened.
+        [Authorize(Roles = "Customer")]
+        [HttpPut("{id}/confirmation")]
+        public IActionResult ConfirmResolution(string id, [FromBody] ConfirmResolutionRequest request)
+        {
+            if (request.Version is null || request.Version < 1)
+                return BadRequest(new { message = "Reload the ticket to get the current version." });
+            var ticket = _db.SupportTickets.AsNoTracking().FirstOrDefault(t => t.Id == id && t.OwnerUserId == CurrentUserId);
+            if (ticket is null) return NotFound(new { message = "Ticket not found." });
+            if (ticket.Status != "Resolved") return BadRequest(new { message = "Only resolved tickets can be confirmed." });
+            var status = request.Resolved ? "Closed" : "Reopened";
+            try
+            {
+                var result = _ticketService.UpdateTicketStatus(id, status, CurrentUserId,
+                    User.Identity?.Name ?? "Customer", request.Version);
+                return Ok(new { message = result });
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Conflict(new { message = "Ticket was updated. Reload and retry." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         [HttpPost("{id}/comments")]
         public IActionResult AddComment(
             string id,
@@ -288,11 +342,8 @@ namespace AISupportAgent.Controllers
                 return Forbid();
 
             var commentTicketQuery = _db.SupportTickets.Where(t => t.Id == id);
-            if (User.IsInRole("Customer"))
-            {
-                var currentId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                commentTicketQuery = commentTicketQuery.Where(t => t.OwnerUserId == currentId);
-            }
+            if (IsCustomer) commentTicketQuery = commentTicketQuery.Where(t => t.OwnerUserId == CurrentUserId);
+            else if (IsAgent) commentTicketQuery = commentTicketQuery.Where(t => t.AssignedTo == CurrentUserId);
             if (!commentTicketQuery.Any())
             {
                 return NotFound(new { message = "Ticket not found." });
@@ -320,6 +371,7 @@ namespace AISupportAgent.Controllers
     {
         public long? Version { get; set; }
         public string Status { get; set; } = "";
+        public string? ResolutionNote { get; set; }
     }
 
     public class UpdatePriorityRequest
@@ -332,6 +384,12 @@ namespace AISupportAgent.Controllers
     {
         public long? Version { get; set; }
         public string AssignedTo { get; set; } = "";
+    }
+
+    public class ConfirmResolutionRequest
+    {
+        public long? Version { get; set; }
+        public bool Resolved { get; set; }
     }
 
     public class AddCommentRequest
