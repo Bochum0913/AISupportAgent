@@ -47,6 +47,7 @@ function App() {
   const [statusFilter, setStatusFilter] = useState('')
   const [priorityFilter, setPriorityFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [showUnassignedOnly, setShowUnassignedOnly] = useState(false)
   const [selected, setSelected] = useState(null)
   const [history, setHistory] = useState([])
   const [historyError, setHistoryError] = useState('')
@@ -144,6 +145,7 @@ function App() {
     }
     csrfToken = null
     setUser(null); setTickets([]); setSelected(null)
+    setAgents([]); setAccounts([]); setShowUnassignedOnly(false)
   }
 
   
@@ -157,7 +159,8 @@ function App() {
     const matchesCategory =
       !categoryFilter || ticket.category === categoryFilter
 
-    return matchesStatus && matchesPriority && matchesCategory
+    return matchesStatus && matchesPriority && matchesCategory &&
+      (!showUnassignedOnly || (!ticket.assignedTo && ticket.status !== 'Closed'))
   })
 
 
@@ -375,6 +378,22 @@ async function addComment(id) {
   const isAgent = user.roles.includes('Agent')
   const isCustomer = user.roles.includes('Customer') && !isAdmin && !isAgent
   const isStaff = isAdmin || isAgent
+
+  // The admin has a staff directory; other roles do not receive that directory.
+  // Never display raw Identity GUIDs to users when a display name is unavailable.
+  const formatAssignee = (value) => {
+    if (!value || value === 'Unassigned') return 'Unassigned'
+    const knownAgent = agents.find(a => a.id === value)
+    if (knownAgent?.email) return knownAgent.email
+    if (user.id === value && user.email) return user.email
+    const isIdentityId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+    return isIdentityId ? 'Assigned support agent' : value
+  }
+
+  const formatHistoryValue = (fieldName, value) => {
+    if (fieldName === 'AssignedTo') return formatAssignee(value)
+    return value || '—'
+  }
   const canEditTicket = isAdmin || (isAgent && selected?.assignedTo === user.id)
   const allowedNextStatus = selected?.status === 'Open' || selected?.status === 'Reopened'
     ? 'In Progress' : selected?.status === 'In Progress' ? 'Resolved' : null
@@ -403,22 +422,51 @@ async function addComment(id) {
       </section>}
 
       <section className="stats">
-        <div className="stat">
-          <h2>{tickets.length}</h2>
-          <p>Total Tickets</p>
-        </div>
-        <div className="stat">
-          <h2>{tickets.filter(t => t.status === 'Open').length}</h2>
-          <p>Open</p>
-        </div>
-        <div className="stat">
-          <h2>{tickets.filter(t => t.status === 'Resolved').length}</h2>
-          <p>Resolved</p>
-        </div>
+        {isCustomer ? <>
+          <div className="stat">
+            <h2>{tickets.length}</h2>
+            <p>My Tickets</p>
+          </div>
+          <div className="stat">
+            <h2>{tickets.filter(t => t.status !== 'Closed').length}</h2>
+            <p>Active Tickets</p>
+          </div>
+          <div className="stat">
+            <h2>{tickets.filter(t => t.status === 'Closed').length}</h2>
+            <p>Closed Tickets</p>
+          </div>
+        </> : isAgent ? <>
+          <div className="stat">
+            <h2>{tickets.length}</h2>
+            <p>My Assigned Tickets</p>
+          </div>
+          <div className="stat">
+            <h2>{tickets.filter(t => ['Open', 'Reopened', 'In Progress'].includes(t.status)).length}</h2>
+            <p>Needs Action</p>
+          </div>
+          <div className="stat">
+            <h2>{tickets.filter(t => t.status === 'Resolved').length}</h2>
+            <p>Awaiting Customer Confirmation</p>
+          </div>
+        </> : <>
+          <div className="stat">
+            <h2>{tickets.length}</h2>
+            <p>All Tickets</p>
+          </div>
+          <div className="stat">
+            <h2>{tickets.filter(t => !t.assignedTo && t.status !== 'Closed').length}</h2>
+            <p>Unassigned Tickets</p>
+          </div>
+          <div className="stat">
+            <h2>{tickets.filter(t => t.status !== 'Closed').length}</h2>
+            <p>Not Closed</p>
+          </div>
+        </>}
       </section>
 
       {error && <p className="error">{error}</p>}
 
+      {isCustomer && (
       <section className="panel">
         <h2>Create Ticket</h2>
 
@@ -443,10 +491,11 @@ async function addComment(id) {
           <button type="submit">Create Ticket</button>
         </form>
       </section>
+      )}
 
       <section className="panel">
         <div className="section-heading">
-          <h2>Support Tickets</h2>
+          <h2>{isAdmin ? 'All Support Tickets' : isAgent ? 'My Assigned Tickets' : 'My Support Tickets'}</h2>
           <button onClick={loadTickets}>Refresh</button>
         </div>
 
@@ -496,10 +545,19 @@ async function addComment(id) {
               setStatusFilter('')
               setPriorityFilter('')
               setCategoryFilter('')
+              setShowUnassignedOnly(false)
             }}
           >
             Clear Filters
           </button>
+          {isAdmin && <button
+            type="button"
+            className={showUnassignedOnly ? '' : 'secondary-button'}
+            aria-pressed={showUnassignedOnly}
+            onClick={() => setShowUnassignedOnly(value => !value)}
+          >
+            {showUnassignedOnly ? 'Show All Tickets' : 'Unassigned Only'}
+          </button>}
         </div>
 
 
@@ -530,6 +588,7 @@ async function addComment(id) {
             </tbody>
           </table>
         )}
+        {!loading && filteredTickets.length === 0 && <p>No tickets match the current filters.</p>}
       </section>
 
       
@@ -566,7 +625,7 @@ async function addComment(id) {
               </select>
 
               <h3>Assigned To</h3>
-              <p>{agents.find(a => a.id === selected.assignedTo)?.email || (selected.assignedTo || 'Unassigned')}</p>
+              <p>{formatAssignee(selected.assignedTo)}</p>
               {isAdmin && <div className="assignee-form">
                 <select value={assignee} onChange={e => setAssignee(e.target.value)} aria-label="Assign to Agent">
                   <option value="">Select an Agent</option>
@@ -603,7 +662,7 @@ async function addComment(id) {
                 <ol className="audit-history">
                   {history.map(entry => (
                     <li key={entry.id}>
-                      <strong>{entry.fieldName}</strong>: {entry.oldValue || 'Unassigned'} → {entry.newValue}
+                      <strong>{entry.fieldName}</strong>: {formatHistoryValue(entry.fieldName, entry.oldValue)} → {formatHistoryValue(entry.fieldName, entry.newValue)}
                       <small>{entry.actorLabel} · {new Date(entry.occurredAtUtc + (entry.occurredAtUtc.endsWith('Z') ? '' : 'Z')).toLocaleString()}</small>
                     </li>
                   ))}
