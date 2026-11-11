@@ -99,18 +99,35 @@ The public demo is intended for product exploration only. Do not enter sensitive
 
 ## Screenshots
 
+### Customer Dashboard
+
+The customer dashboard provides ticket statistics, issue submission, and filtering by status, priority, and category.
+
+![AISupportAgent Customer Dashboard](screenshots/dashboard-docker.png)
+
 If these images are available in the repository:
 
 ![Ticket dashboard](screenshots/dashboard.png)
 
 ![Ticket details](screenshots/ticket-details.png)
 
-## Roadmap
+## Implemented Features
 
-- Authentication and role-based access control
-- Secure public backend deployment and rate limiting
-- Durable hosted database and explicit AI usage limits
-- More extensive automated testing and UX improvements
+- User registration and login with ASP.NET Core Identity
+- Role-based access control (Customer, Agent, Admin)
+- Support ticket creation and management
+- SQLite persistence with Entity Framework Core
+- Docker Compose deployment with Nginx and HTTPS
+- CSRF protection and secure authentication cookies
+
+## Future Improvements
+
+- Production-ready cloud deployment
+- API rate limiting and monitoring
+- Expanded automated integration and security tests
+- Enhanced AI-powered ticket classification
+- Improved dashboard analytics and reporting
+
 
 ## Security note
 
