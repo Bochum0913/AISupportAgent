@@ -42,13 +42,40 @@ Customers can also skip the AI and create a ticket directly from their dashboard
 
 The backend enforces authorization independently of which controls are visible in the frontend.
 
+
 ## Screenshots
 
-### Customer Dashboard
+### 1. Customer Dashboard
+Customers can use AI-powered troubleshooting, create support tickets,
+and track their ticket status.
 
-![Customer dashboard with ticket statistics and ticket list](screenshots/dashboard-docker.png)
+![Customer Dashboard](screenshots/customer-dashboard.png)
 
-> The image above is an earlier customer dashboard capture. The current application has distinct Customer, Agent, and Admin dashboards. Updated screenshots of these role-specific views can be added to `screenshots/`.
+### 2. AI-Powered Troubleshooting
+The AI assistant provides troubleshooting guidance and asks users
+whether their issue has been resolved. Unresolved issues can be
+escalated to support tickets with explicit user confirmation.
+
+![AI Troubleshooting](screenshots/ai-troubleshooting.png)
+
+### 3. Agent Dashboard
+Support agents can view assigned tickets, update their status,
+add resolution notes, and communicate with customers.
+
+![Agent Dashboard](screenshots/agent-dashboard.png)
+
+### 4. Admin Dashboard
+Administrators can manage user roles, assign support tickets,
+and monitor the overall support workflow.
+
+![Admin Dashboard](screenshots/admin-dashboard.png)
+
+### 5. Ticket Details and Activity History
+Ticket details include status changes, assignment history,
+and communication records for traceability.
+
+![Ticket Details](screenshots/ticket-details.png)
+
 
 ## Technology Stack
 
