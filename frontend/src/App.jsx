@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from 'react'
 import './App.css'
+import AIChat from './AIChat.jsx'
 
 const API = '/api/tickets'
 let csrfToken = null
@@ -441,6 +442,8 @@ async function addComment(id) {
       </section>
 
       
+      <AIChat key={user.id} apiFetch={apiFetch} onTicketCreated={loadTickets} />
+
       {selected && (
         <div className="drawer-overlay" onClick={() => setSelected(null)}>
           <aside
