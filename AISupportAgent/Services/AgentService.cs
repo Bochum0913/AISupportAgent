@@ -1,4 +1,4 @@
-﻿using AISupportAgent.Models;
+using AISupportAgent.Models;
 using OpenAI.Responses;
 using System.Text.Json;
 
@@ -75,7 +75,8 @@ namespace AISupportAgent.Services
                 """u8.ToArray()),
                 strictModeEnabled: false
             );
-            tools.Add(createSupportTicketTool);
+            // Intentionally not registered: writes must use authenticated, validated APIs.
+            // tools.Add(createSupportTicketTool);
 
             FunctionTool getSupportTicketTool = ResponseTool.CreateFunctionTool(
                 functionName: "get_support_ticket",
@@ -117,7 +118,8 @@ namespace AISupportAgent.Services
                 """u8.ToArray()),
                 strictModeEnabled: false
             );
-            tools.Add(updateSupportTicketTool);
+            // Intentionally not registered: writes must use authenticated, validated APIs.
+            // tools.Add(updateSupportTicketTool);
 
             FunctionTool addTicketCommentTool = ResponseTool.CreateFunctionTool(
                 functionName: "add_ticket_comment",
@@ -140,7 +142,8 @@ namespace AISupportAgent.Services
                 """u8.ToArray()),
                 strictModeEnabled: false
             );
-            tools.Add(addTicketCommentTool);
+            // Intentionally not registered: writes must use authenticated, validated APIs.
+            // tools.Add(addTicketCommentTool);
 
             FunctionTool updateTicketPriorityTool = ResponseTool.CreateFunctionTool(
                 functionName: "update_ticket_priority",
@@ -163,7 +166,8 @@ namespace AISupportAgent.Services
                 """u8.ToArray()),
                 strictModeEnabled: false
             );
-            tools.Add(updateTicketPriorityTool);
+            // Intentionally not registered: writes must use authenticated, validated APIs.
+            // tools.Add(updateTicketPriorityTool);
 
             FunctionTool listSupportTicketsTool = ResponseTool.CreateFunctionTool(
                 functionName: "list_support_tickets",
@@ -213,7 +217,8 @@ namespace AISupportAgent.Services
                 """u8.ToArray()),
                 strictModeEnabled: false
             );
-            tools.Add(assignSupportTicketTool);
+            // Intentionally not registered: writes must use authenticated, validated APIs.
+            // tools.Add(assignSupportTicketTool);
 
             FunctionTool listEntraUsersTool = ResponseTool.CreateFunctionTool(
                 functionName: "list_entra_users",
@@ -279,7 +284,8 @@ namespace AISupportAgent.Services
                 """u8.ToArray()),
                 strictModeEnabled: false
             );
-            tools.Add(createEntraGroupTool);
+            // Intentionally not registered: writes must use authenticated, validated APIs.
+            // tools.Add(createEntraGroupTool);
 
             FunctionTool addUserToEntraGroupTool = ResponseTool.CreateFunctionTool(
                 functionName: "add_user_to_entra_group",
@@ -303,50 +309,10 @@ namespace AISupportAgent.Services
                 """u8.ToArray()),
                 strictModeEnabled: false
             );
-            tools.Add(addUserToEntraGroupTool);
+            // Intentionally not registered: writes must use authenticated, validated APIs.
+            // tools.Add(addUserToEntraGroupTool);
 
             return tools;
-        }
-
-        private bool IsWriteOperationConfirmed(string conversationId)
-        {
-            List<ConversationMessage> messages =
-                _conversationService.GetMessages(conversationId);
-
-            if (messages == null || messages.Count == 0)
-            {
-                return false;
-            }
-
-            // The current user message is the last user message in the conversation.
-            ConversationMessage? lastUserMessage = messages
-                .LastOrDefault(m => m.Role == "user");
-
-            if (lastUserMessage == null)
-            {
-                return false;
-            }
-
-            string text = lastUserMessage.Content
-                .Trim()
-                .ToLowerInvariant();
-
-            string[] confirmations =
-            {
-                "yes",
-                "yes, proceed",
-                "yes proceed",
-                "confirm",
-                "confirmed",
-                "proceed",
-                "go ahead",
-                "do it"
-            };
-
-            return confirmations.Any(c =>
-                text == c ||
-                text == c + "." ||
-                text == c + "!");
         }
 
         private async Task<string> ExecuteToolAsync(FunctionCallResponseItem functionCall, string conversationId)
@@ -357,8 +323,19 @@ namespace AISupportAgent.Services
 
                 using JsonDocument arguments = JsonDocument.Parse(functionCall.FunctionArguments);
 
-                string result;
+                // Defense in depth: this legacy chat endpoint is READ-ONLY.
+                // Do not rely on the model prompt or the tool registration alone.
+                if (functionCall.FunctionName is
+                    "create_support_ticket" or "update_support_ticket" or
+                    "add_ticket_comment" or "update_ticket_priority" or
+                    "assign_support_ticket" or "create_entra_group" or
+                    "add_user_to_entra_group")
+                {
+                    _logger.LogWarning("Denied write tool {ToolName}", functionCall.FunctionName);
+                    return "This operation is unavailable in AI chat. Use the authenticated application controls.";
+                }
 
+                string result;
                 switch (functionCall.FunctionName)
                 {
                     case "search_knowledge_base":
@@ -369,16 +346,7 @@ namespace AISupportAgent.Services
                             break;
                         }
 
-                    case "create_support_ticket":
-                        {
-                            string issue = arguments.RootElement.GetProperty("issue").GetString() ?? "";
 
-                            string category = arguments.RootElement.GetProperty("category").GetString() ?? "";
-
-                            result = _supportTicketService.CreateTicket(issue, category);
-
-                            break;
-                        }
 
                     case "get_support_ticket":
                         {
@@ -388,38 +356,11 @@ namespace AISupportAgent.Services
                             break;
                         }
 
-                    case "update_support_ticket":
-                        {
-                            string ticketId = arguments.RootElement.GetProperty("ticketId").GetString() ?? "";
 
-                            string status = arguments.RootElement.GetProperty("status").GetString() ?? "";
 
-                            result = _supportTicketService.UpdateTicketStatus(ticketId,status);
 
-                            break;
-                        }
 
-                    case "add_ticket_comment":
-                        {
-                            string ticketId = arguments.RootElement.GetProperty("ticketId").GetString() ?? "";
 
-                            string content = arguments.RootElement.GetProperty("content").GetString() ?? "";
-
-                            result = _supportTicketService.AddComment(ticketId,content);
-
-                            break;
-                        }
-
-                    case "update_ticket_priority":
-                        {
-                            string ticketId = arguments.RootElement.GetProperty("ticketId").GetString() ?? "";
-
-                            string priority = arguments.RootElement.GetProperty("priority").GetString() ?? "";
-
-                            result = _supportTicketService.UpdateTicketPriority(ticketId,priority);
-
-                            break;
-                        }
 
                     case "list_support_tickets":
                         {
@@ -456,16 +397,7 @@ namespace AISupportAgent.Services
                             break;
                         }
 
-                    case "assign_support_ticket":
-                        {
-                            string ticketId = arguments.RootElement.GetProperty("ticketId").GetString() ?? "";
 
-                            string assignedTo = arguments.RootElement.GetProperty("assignedTo").GetString() ?? "";
-
-                            result = _supportTicketService.AssignTicket(ticketId,assignedTo);
-
-                            break;
-                        }
 
                     case "list_entra_users":
                         {
@@ -494,64 +426,9 @@ namespace AISupportAgent.Services
                             break;
                         }
 
-                    case "create_entra_group":
-                        {
-                            // Backend safety guard:
-                            // Never create an Entra ID group unless the user
-                            // explicitly confirmed the operation.
-                            if (!IsWriteOperationConfirmed(conversationId))
-                            {
-                                _logger.LogWarning(
-                                    "Blocked unconfirmed write operation {ToolName}",
-                                    functionCall.FunctionName
-                                );
 
-                                return
-                                    "BLOCKED: The create-group operation was not " +
-                                    "explicitly confirmed by the user. Do not make " +
-                                    "any Microsoft Entra ID changes.";
-                            }
 
-                            string groupName = arguments.RootElement.GetProperty("groupName").GetString() ?? "";
 
-                            result =
-                                await _microsoftGraphService
-                                    .CreateGroupAsync(groupName);
-
-                            break;
-                        }
-
-                    case "add_user_to_entra_group":
-                        {
-                            // Backend safety guard:
-                            // Never add a user to a group unless the user
-                            // explicitly confirmed the operation.
-                            if (!IsWriteOperationConfirmed(conversationId))
-                            {
-                                _logger.LogWarning(
-                                    "Blocked unconfirmed write operation {ToolName}",
-                                    functionCall.FunctionName
-                                );
-
-                                return
-                                    "BLOCKED: The add-user-to-group operation was " +
-                                    "not explicitly confirmed by the user. Do not " +
-                                    "make any Microsoft Entra ID changes.";
-                            }
-
-                            string userName = arguments.RootElement.GetProperty("userName").GetString() ?? "";
-
-                            string groupName = arguments.RootElement.GetProperty("groupName").GetString() ?? "";
-
-                            result =
-                                await _microsoftGraphService
-                                    .AddUserToGroupByNameAsync(
-                                        userName,
-                                        groupName
-                                    );
-
-                            break;
-                        }
 
                     default:
                         {
@@ -611,6 +488,11 @@ namespace AISupportAgent.Services
 
                 Instructions = """
                     You are an AI IT support agent for a company.
+                    This legacy administrator chat is READ-ONLY. You may search the
+                    knowledge base and retrieve information, but must never claim to
+                    create, assign, comment on, or modify tickets, users, or groups.
+                    To change anything, direct the administrator to the application's
+                    regular management screens. Do not ask for write confirmation.
 
                     When a user asks for help with an IT problem, always search the
                     company knowledge base using the search_knowledge_base tool before
