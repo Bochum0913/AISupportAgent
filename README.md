@@ -1,79 +1,140 @@
-# AI Support Agent
+# AISupportAgent — AI-Powered IT Help Desk
 
-**Full-stack IT support and ticket management with an AI-assisted workflow**
+[![.NET Tests](https://github.com/Bochum0913/AISupportAgent/actions/workflows/dotnet-tests.yml/badge.svg)](https://github.com/Bochum0913/AISupportAgent/actions/workflows/dotnet-tests.yml)
 
-Built with **React, ASP.NET Core (.NET 10), Entity Framework Core, SQLite, and the OpenAI API**. The application combines a ticket-management dashboard with an AI assistant that can help troubleshoot IT issues and perform ticket operations after a user request.
+**A full-stack IT support application combining AI-powered self-service troubleshooting, role-based ticket management, and human support escalation.**
 
-> **Live frontend demo:** [SupportFlow Portfolio Demo](https://supportflow-demo.pages.dev)  
-> **Demo source:** [SupportFlow-Demo](https://github.com/Bochum0913/SupportFlow-Demo)  
-> The public demo uses **scripted AI simulations and browser-only storage**, not this project's live backend or OpenAI API.
+Built with **ASP.NET Core 10, React, Entity Framework Core, SQLite, OpenAI API, Docker Compose, and Nginx**.
 
-## Features
+> **Portfolio frontend demo:** [SupportFlow Demo](https://supportflow-demo.pages.dev)
+> **Demo source:** [SupportFlow-Demo](https://github.com/Bochum0913/SupportFlow-Demo)
+> The public demo uses scripted AI interactions and browser-local data. The full-stack application in this repository runs a real ASP.NET Core backend and can call the OpenAI API when configured.
 
-- **AI-assisted IT troubleshooting:** conversational support, knowledge-base lookups, and continued conversations.
-- **Ticket workflows:** create tickets and change ticket priority through natural-language requests to the assistant.
-- **Support dashboard:** ticket counts, list and detail views, filtering by status, priority, and category.
-- **Ticket administration:** status and priority updates, technician assignment, and comments.
-- **Local persistence:** ticket data stored in SQLite through Entity Framework Core.
-- **End-to-end testing:** Playwright test setup and ticket workflow tests.
+## Highlights
 
-### Example workflow
+- **AI-first self-service:** Customers describe an IT issue and receive AI-powered troubleshooting guidance. If the issue remains unresolved, the app asks whether the customer wants to create a support ticket; it never creates one without explicit confirmation.
+- **Three role-specific dashboards:** Customers manage their own tickets; Agents work on assigned tickets; Admins manage roles, assignments, and the overall ticket queue.
+- **Human support workflow:** Tickets move from **Open → In Progress → Resolved**. Customers can confirm closure (**Closed**) or request more help (**Reopened**).
+- **Authentication and authorization:** ASP.NET Core Identity, role-based API access, ticket ownership checks, CSRF protection, and secure cookies.
+- **Traceable work:** Public replies, staff-only internal notes, status/assignment audit history, and ticket version checks.
+- **Containerized local deployment:** Docker Compose, Nginx reverse proxy with local HTTPS, and persistent SQLite storage.
+- **Automated testing:** xUnit unit/controller tests and HTTP authorization integration tests; CI runs using GitHub Actions on pushes and pull requests.
 
-1. A user asks: *“My VPN isn't connecting. Can you help?”*
-2. The assistant supplies troubleshooting guidance using a knowledge-base article.
-3. The user asks the assistant to create a ticket.
-4. The dashboard shows the new ticket.
-5. The user asks to set the ticket's priority to High; the dashboard reflects the update.
+## Example: From AI Help to a Resolved Ticket
 
-This workflow was tested locally. The public demo reproduces comparable interactions using simulated, rules-based responses.
+1. A Customer asks the AI assistant: **“I cannot connect to my company VPN.”**
+2. The AI returns troubleshooting suggestions and asks **“Did this resolve your issue?”**
+3. If the Customer selects **No**, the application asks whether they want to create a support ticket.
+4. Only after the Customer confirms **Yes, create ticket** does the system create the ticket.
+5. An Admin assigns the ticket to an Agent account.
+6. The Agent investigates, updates the ticket to **In Progress**, and submits a public resolution note before marking it **Resolved**.
+7. The Customer chooses **Yes, close ticket** or **No, reopen ticket**. The activity history records changes.
 
-## Tech stack
+Customers can also skip the AI and create a ticket directly from their dashboard.
 
-| Layer | Technologies |
+## Roles and Permissions
+
+| Role | Main capabilities |
+| --- | --- |
+| **Customer** | Ask AI, create tickets, view own tickets and public replies, confirm closure or reopen a resolved ticket |
+| **Agent** | View assigned tickets, update allowed states and priority, add public replies and internal notes |
+| **Admin** | View all tickets, manage user roles, assign tickets to verified Agent accounts, oversee ticket progress |
+
+The backend enforces authorization independently of which controls are visible in the frontend.
+
+## Screenshots
+
+### Customer Dashboard
+
+![Customer dashboard with ticket statistics and ticket list](screenshots/dashboard-docker.png)
+
+> The image above is an earlier customer dashboard capture. The current application has distinct Customer, Agent, and Admin dashboards. Updated screenshots of these role-specific views can be added to `screenshots/`.
+
+## Technology Stack
+
+| Area | Technologies |
 | --- | --- |
 | Frontend | React, JavaScript, Vite, CSS |
 | Backend | C#, ASP.NET Core Web API, .NET 10 |
-| Persistence | SQLite, Entity Framework Core and migrations |
-| AI integration | OpenAI API, application-side agent and knowledge-base services |
-| Testing | Playwright |
-| Development | Git, GitHub, Visual Studio / VS Code |
+| Authentication | ASP.NET Core Identity, cookie authentication, role-based authorization, CSRF protection |
+| Database | SQLite, Entity Framework Core, migrations |
+| AI | OpenAI API, application-side troubleshooting and knowledge-base services |
+| Deployment | Docker Compose, Nginx, local HTTPS, persistent Docker volume |
+| Testing & CI | xUnit, ASP.NET Core HTTP integration tests, GitHub Actions; Playwright test setup |
 
 ## Architecture
 
 ```text
-React dashboard + AI chat
-          |
-          | HTTP /api requests (Vite proxy in development)
-          v
-ASP.NET Core Web API
-  |-- Ticket controllers/services --> EF Core --> SQLite
-  |-- Agent controller/service ---> Knowledge base + AI integration
-  `-- Conversation handling
+Browser (React frontend)
+   |
+   | HTTPS :8443 (local Docker deployment)
+   v
+Nginx reverse proxy
+   |
+   | /api
+   v
+ASP.NET Core Web API (.NET 10)
+   |-- Auth/Identity ----> AuthDbContext ----> SQLite
+   |-- Ticket APIs -----> AppDbContext ------> SQLite
+   |-- AI self-service --> Troubleshooting / OpenAI integration
+   `-- Role checks, audit history, comments, workflow validation
 ```
 
-## Run locally
+## Quick Start with Docker
 
-### Prerequisites
+### Requirements
+
+- Docker Desktop (or Docker Engine with Docker Compose)
+- Port **8443** available on your machine
+- Optional: an OpenAI API key for live AI responses
+
+```bash
+git clone https://github.com/Bochum0913/AISupportAgent.git
+cd AISupportAgent
+```
+
+To enable OpenAI responses, copy `.env.example` to `.env` in the repository root and configure the key locally:
+
+```dotenv
+OPENAI_API_KEY=your_api_key_here
+```
+
+The `.env` file must **never** be committed. Other optional integrations and bootstrap-admin settings are documented in `.env.example`.
+
+Start the application:
+
+```bash
+docker compose up --build -d
+```
+
+Open **https://localhost:8443** in your browser. The local setup uses a self-signed HTTPS certificate, so the browser may show a certificate warning; only accept it for your own trusted localhost environment.
+
+Register a Customer account to try the dashboard and ticket workflow. To test the Admin/Agent workflow, configure a separate initial Admin account using the optional bootstrap environment variables, restart the backend container, and promote a separate Customer test account to Agent through the Admin interface. Do not use production credentials or real user data for demos.
+
+Stop the containers:
+
+```bash
+docker compose down
+```
+
+SQLite data is stored in a persistent Docker volume and survives ordinary restarts and `docker compose down`. **Do not run `docker compose down -v` unless you intend to delete the database volume.**
+
+## Run Without Docker
+
+### Requirements
 
 - .NET 10 SDK
 - Node.js and npm
-- An OpenAI API key with any required usage allowance, for live AI responses
+- Optional OpenAI API credentials via ASP.NET Core User Secrets or environment variables
 
-### Backend
-
-From the repository root:
+From the repository root, start the backend:
 
 ```bash
 dotnet restore AISupportAgent/AISupportAgent.csproj
-dotnet ef database update --project AISupportAgent/AISupportAgent.csproj --startup-project AISupportAgent/AISupportAgent.csproj
 dotnet run --project AISupportAgent/AISupportAgent.csproj
 ```
 
-The `dotnet ef` command requires the EF Core CLI tool. Alternatively, in Visual Studio's Package Manager Console, select the `AISupportAgent` project and run `Update-Database`.
-
-Configure the required OpenAI settings using **ASP.NET Core User Secrets or environment variables**, following the configuration keys referenced by the service code. **Never commit API keys** to GitHub. Check the backend launch URL and `frontend/vite.config.js` proxy target; the supplied configuration points to `https://localhost:7088`.
-
-### Frontend
+In another terminal, run the frontend:
 
 ```bash
 cd frontend
@@ -81,111 +142,47 @@ npm install
 npm run dev
 ```
 
-On Windows PowerShell, use `npm.cmd install` and `npm.cmd run dev` if `npm.ps1` is blocked by the execution policy.
+Open the Vite URL printed in the terminal (commonly `http://localhost:5173`). The development proxy in `frontend/vite.config.js` should point to the backend's active HTTPS URL (the repository's development configuration uses `https://localhost:7088`).
 
-Open the URL Vite prints (often `http://localhost:5173`). Start the backend before testing live tickets and chat.
+## Automated Tests
 
-## Public demo vs. local application
+The repository contains **17 passing tests**, including ticket workflow tests and HTTP integration tests for role-based API authorization, verified locally with the .NET 10 SDK container. GitHub Actions also runs the solution test command automatically.
 
-| Capability | Local full-stack project | Public portfolio demo |
-| --- | --- | --- |
-| AI responses | Real API-backed integration | Explicitly scripted simulation |
-| Ticket persistence | SQLite database | Each browser's `localStorage` |
-| Backend API | ASP.NET Core | Simulated in the browser |
-| Shared multi-user tickets | Not designed as hosted production service | No |
-| Public hosting | Not deployed | Cloudflare Pages |
-
-The public demo is intended for product exploration only. Do not enter sensitive information.
-
-## Screenshots
-
-### Customer Dashboard
-
-The customer dashboard provides ticket statistics, issue submission, and filtering by status, priority, and category.
-
-![AISupportAgent Customer Dashboard](screenshots/dashboard-docker.png)
-
-If these images are available in the repository:
-
-![Ticket dashboard](screenshots/dashboard.png)
-
-![Ticket details](screenshots/ticket-details.png)
-
-## Implemented Features
-
-- User registration and login with ASP.NET Core Identity
-- Role-based access control (Customer, Agent, Admin)
-- Support ticket creation and management
-- SQLite persistence with Entity Framework Core
-- Docker Compose deployment with Nginx and HTTPS
-- CSRF protection and secure authentication cookies
-
-## Future Improvements
-
-- Production-ready cloud deployment
-- API rate limiting and monitoring
-- Expanded automated integration and security tests
-- Enhanced AI-powered ticket classification
-- Improved dashboard analytics and reporting
-
-
-## Security note
-
-This is a portfolio project, **not a production helpdesk**. Before enabling public API access, add authentication, authorization, abuse prevention, appropriate logging, secure secret storage, and resource limits.
-
-## Docker Deployment
-
-AISupportAgent supports local deployment using Docker Compose. The application includes an ASP.NET Core 10 backend, a React/Vite frontend served by Nginx, and persistent SQLite storage.
-
-### Prerequisites
-
-- Docker Desktop or Docker Engine with Docker Compose
-- Available port `8443`
-
-### Quick Start
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/Bochum0913/AISupportAgent.git
-   cd AISupportAgent
-   ```
-
-2. Optionally copy `.env.example` to `.env` and configure API credentials. External API credentials are not required for basic ticket management.
-
-3. Build and start the application:
-
-   ```bash
-   docker compose up --build -d
-   ```
-
-4. Open the application:
-
-   **https://localhost:8443**
-
-   The local environment uses a self-signed HTTPS certificate, so your browser may display a certificate warning. Only proceed when testing your own localhost deployment.
-
-5. Create a Customer account to test authentication and ticket creation.
-
-### Stop the Application
+Run with a local .NET 10 SDK:
 
 ```bash
-docker compose down
+dotnet test AISupportAgent.slnx
 ```
 
-SQLite data is stored in a persistent Docker volume and survives normal container restarts and `docker compose down`.
+Or run in an isolated .NET 10 SDK Docker container:
 
-**Warning:** Running `docker compose down -v` removes the database volume and can permanently delete stored data.
+```bash
+docker run --rm -v "${PWD}:/src" -w /src mcr.microsoft.com/dotnet/sdk:10.0 dotnet test AISupportAgent.slnx
+```
 
-### Optional Integrations
+> The command above is suitable for PowerShell. On other shells, adjust the current-directory mount syntax if needed. Test results are specific to the tested code revision; see the CI badge for current status.
 
-The application supports optional OpenAI and Microsoft Graph integrations. Configure the corresponding environment variables in a local `.env` file.
+CI workflow: [`.github/workflows/dotnet-tests.yml`](.github/workflows/dotnet-tests.yml).
 
-Never commit real API keys, client secrets, or passwords to the repository.
+## Public Demo vs. Full-Stack Application
 
-### Security Notes
+| Capability | Full-stack application | Public frontend demo |
+| --- | --- | --- |
+| AI troubleshooting | Real OpenAI API when configured | Scripted / simulated |
+| Backend | ASP.NET Core API | Browser-only simulation |
+| Authentication and roles | ASP.NET Core Identity and role checks | Demo-only behavior |
+| Ticket persistence | SQLite | Browser-local storage |
+| Hosting | Local Docker deployment | Cloudflare Pages |
 
-- The Docker configuration is intended for local development and demonstration.
-- HTTPS uses a self-signed certificate.
-- The reverse proxy is configured for the included Docker network.
-- Public deployment requires a trusted TLS certificate, appropriate network settings, and additional security review.
+The public demo is for portfolio exploration and is **not connected** to this application's database or live API. Do not enter secrets or sensitive information into the demo.
+
+## Security and Scope
+
+This is a **local portfolio application, not a production-hosted help desk**. It includes authentication, role authorization, CSRF safeguards, ticket access checks, and a limited local reverse-proxy configuration. Before any public deployment, additional measures are required, including a trusted TLS certificate, rate limiting and abuse prevention, secret management, monitoring, operational backups, and a full security review. Do not commit `.env` files, API keys, or database files.
+
+## Possible Future Improvements
+
+- Production hosting with managed secrets, observability, and backups
+- Additional security, concurrency, and end-to-end tests
+- Improved ticket analytics, search, and pagination
+- AI usage controls and support for a larger knowledge base
